@@ -72,6 +72,7 @@ INITIAL_CONFIG = {
         "pam_group_membership": "",
         "courier_socket": "",
         "http_url": "",
+        "http_mode": "post",
         "http_user_parameter": "",
         "http_password_parameter": ""},
     "git": {
