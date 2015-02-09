@@ -34,10 +34,25 @@ from .. import config, log
 AUTH_URL = config.get("auth", "http_url")
 USER_PARAM = config.get("auth", "http_user_parameter")
 PASSWORD_PARAM = config.get("auth", "http_password_parameter")
+AUTH_MODE = config.get("auth", "http_mode")
 
 
 def is_authenticated(user, password):
+    if AUTH_MODE == "basic":
+        return is_authenticated_basic(user, password)
+    else:
+        return is_authenticated_post(user, password)
+
+
+def is_authenticated_post(user, password):
     """Check if ``user``/``password`` couple is valid."""
-    log.LOGGER.debug("HTTP-based auth on %s." % AUTH_URL)
+    log.LOGGER.debug("HTTP-based post auth on %s." % AUTH_URL)
     payload = {USER_PARAM: user, PASSWORD_PARAM: password}
     return requests.post(AUTH_URL, data=payload).status_code in (200, 201)
+
+
+def is_authenticated_basic(user, password):
+    """Use HTTP Basic Authentication to check if ``user``/``password``
+    couple is valid"""
+    log.LOGGER.debug("HTTP basic auth on %s." % AUTH_URL)
+    return requests.get(AUTH_URL, auth=(user, password)) in (200, 201)
