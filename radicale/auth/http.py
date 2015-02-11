@@ -35,9 +35,12 @@ AUTH_URL = config.get("auth", "http_url")
 USER_PARAM = config.get("auth", "http_user_parameter")
 PASSWORD_PARAM = config.get("auth", "http_password_parameter")
 
+session = requests.Session()
+log.LOGGER.debug("http auth module loaded")
+
 
 def is_authenticated(user, password):
     """Check if ``user``/``password`` couple is valid."""
     log.LOGGER.debug("HTTP-based auth on %s." % AUTH_URL)
     payload = {USER_PARAM: user, PASSWORD_PARAM: password}
-    return requests.post(AUTH_URL, data=payload).status_code in (200, 201)
+    return session.post(AUTH_URL, data=payload, stream=False).status_code in (200, 201)
