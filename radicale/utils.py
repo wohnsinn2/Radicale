@@ -2,7 +2,7 @@ import time
 
 class CacheDict(dict):
     def __init__(self, timeout, *args, **kwargs):
-        self.timeout = float(timeout)
+        self._timeout = float(timeout)
         super(CacheDict, self).__init__(*args, **kwargs)
 
     def __setitem__(self, name, value):
@@ -16,7 +16,7 @@ class CacheDict(dict):
     def __getitem__(self, name):
         cur_time = time.time()
         entry = super(CacheDict, self).__getitem__(name)
-        if entry['tstamp'] < (cur_time - self.timeout):
+        if entry['tstamp'] < (cur_time - self._timeout):
             super(CacheDict, self).__delitem__(name)
             raise KeyError(name)
         return entry['value']
