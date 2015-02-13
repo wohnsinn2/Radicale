@@ -1,0 +1,23 @@
+[server]
+hosts = 127.0.0.1:5232
+ssl = False
+base_prefix = /caldav/
+can_skip_base_prefix = False
+realm = Wohnsinn Kalender Server - bitte Benutzer und Passwort angeben
+
+[auth]
+type = http
+http_url = http://127.0.0.1:5008/api/user/auth
+http_user_parameter = user
+http_password_parameter = password
+http_cache_timeout = 10
+
+[rights]
+type = custom
+custom_handler = http
+rights_url = http://127.0.0.1:5008/api/user/$user/permissions/calendars/$cal
+http_cache_timeout = 10
+
+[storage]
+type = filesystem
+filesystem_folder = ~/apps/radicale/collections

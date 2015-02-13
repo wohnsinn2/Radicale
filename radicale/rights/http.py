@@ -1,6 +1,9 @@
 import requests
+
 from .. import config, log
+from ..utils import CacheDict
 from string import Template
+
 
 # TODO caching, any object we can attach to here?
 # requests with session
@@ -10,24 +13,55 @@ from string import Template
 RIGHTS_URL_TEMPL = config.get("rights", "rights_url")
 
 log.LOGGER.debug("http rights module loaded")
+TIMEOUT = config.get("rights", "http_cache_timeout")
+
+session = requests.Session()
+permission_cache = {}
 
 
-def get_cal_name(collection):
+def _get_cal_name(collection):
     # TODO normalize/lowercase?
+    # check sanity [a-zA-Z-_]
     cal_name = collection.rstrip(".ics")
     cal_name = cal_name.split('/')[-1]
     return cal_name
 
 
-def _authorized_http(user, collection, permission):
-    cal_name = get_cal_name(collection)
+def _http_get_permission(user, collection):
+    cal_name = _get_cal_name(collection)
     rights_url = Template(RIGHTS_URL_TEMPL).substitute(user=user, cal=cal_name)
-    response = requests.get(rights_url)
-    state = response.status_code
+    response = session.get(rights_url, )
     content = response.text or ""
-    log.LOGGER.debug("Permission %s reqeusted for user %s on collection %s with"
-                     "calendar name %s with effective permission %s" % (permission, user, collection, cal_name, content))
-    return (permission in content) and (state in (200, 201))
+    try:
+        response.raise_for_status()
+        return content
+    except requests.exceptions.HTTPError:
+        return None
+
+
+# TODO: multi-dim cache
+def _add_entry(user, collection, permission):
+    entry = {collection: permission}
+    try:
+        permission_cache[user].update(entry)
+    except KeyError:
+        new_entry = CacheDict(TIMEOUT, entry)
+        permission_cache[user] = new_entry
+
+
+def _get_permission(user, collection):
+    try:
+        return permission_cache[user][collection]
+    except KeyError:
+        permission = _http_get_permission(user, collection)
+        if permission is not None:
+            _add_entry(user, collection, permission)
+        return permission
+
+
+def _authorized_http(user, collection, permission):
+    real_permission = _get_permission(user, collection)
+    return permission in real_permission
 
 
 def authorized(user, collection, permission):

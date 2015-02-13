@@ -29,18 +29,27 @@ Anything other than a 200/201 response is considered auth failure.
 
 import requests
 
-from .. import config, log
+from .. import config, log, utils
 
 AUTH_URL = config.get("auth", "http_url")
 USER_PARAM = config.get("auth", "http_user_parameter")
 PASSWORD_PARAM = config.get("auth", "http_password_parameter")
+TIMEOUT = config.get("auth", "http_cache_timeout")
 
 session = requests.Session()
-log.LOGGER.debug("http auth module loaded")
+user_cache = utils.CacheDict(TIMEOUT)
 
 
 def is_authenticated(user, password):
     """Check if ``user``/``password`` couple is valid."""
     log.LOGGER.debug("HTTP-based auth on %s." % AUTH_URL)
-    payload = {USER_PARAM: user, PASSWORD_PARAM: password}
-    return session.post(AUTH_URL, data=payload, stream=False).status_code in (200, 201)
+    try:
+        cache_password = user_cache[user]
+        return password == cache_password
+    except KeyError:
+        payload = {USER_PARAM: user, PASSWORD_PARAM: password}
+        state = session.post(AUTH_URL, data=payload, stream=False).status_code
+        if state in (200, 201):
+                  user_cache[user] = password
+                  return True
+        return False
