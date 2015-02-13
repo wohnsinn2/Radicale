@@ -43,13 +43,17 @@ user_cache = utils.CacheDict(TIMEOUT)
 def is_authenticated(user, password):
     """Check if ``user``/``password`` couple is valid."""
     log.LOGGER.debug("HTTP-based auth on %s." % AUTH_URL)
+    if user is None or password is None:
+        return False
     try:
         cache_password = user_cache[user]
+        log.LOGGER.debug('Got password {} for user {} from cache password {}'.format(password, user, cache_password))
         return password == cache_password
     except KeyError:
         payload = {USER_PARAM: user, PASSWORD_PARAM: password}
         state = session.post(AUTH_URL, data=payload, stream=False).status_code
         if state in (200, 201):
                   user_cache[user] = password
+                  log.LOGGER.debug('Got password {} for user {} from http'.format(password, user))
                   return True
         return False
