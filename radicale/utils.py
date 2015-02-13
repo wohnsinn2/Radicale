@@ -1,5 +1,5 @@
 import time
-from collections import namedtuple, Mapping
+from collections import namedtuple, Mapping, MutableMapping
 
 
 class ValContainer(namedtuple('ValContainer', ['tstamp', 'value'])):
@@ -12,10 +12,6 @@ class CacheDict(dict):
     def __init__(self, timeout=None, mapping=None, root=None):
         super(CacheDict, self).__init__()
         self._timeout = timeout
-        # why does
-        # self._root = root or self
-        # not work here?!
-        # -> empty dicts are False!
         if root is None:
             self._root = self
         else:
@@ -46,10 +42,11 @@ class CacheDict(dict):
         else:
             return entry
 
-    def update(self, mapping):
-        # TODO: use generator
-        for k, v in mapping.items():
-            self.__setitem__(k, v)
+    update = MutableMapping.update
+    keys = MutableMapping.keys
+    values = MutableMapping.values
+    items = MutableMapping.items
+    __ne__ = MutableMapping.__ne__
 
     def clean(self, timeout=None):
         raise NotImplemented
