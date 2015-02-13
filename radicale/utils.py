@@ -9,23 +9,20 @@ class ValContainer(namedtuple('ValContainer', ['tstamp', 'value'])):
 
 
 class CacheDict(dict):
-    def __init__(self, timeout, mapping=None):
-        if isinstance(timeout, CacheDict):
-            self._timeout = timeout
-        else:
-            self._timeout = float(timeout)
+    def __init__(self, timeout=None, mapping=None, root=None):
         super(CacheDict, self).__init__()
+        self._timeout = timeout
+        if root is None:
+            self._root = self
+        else:
+            self._root = root
         if mapping is not None:
             self.update(mapping)
 
     def __setitem__(self, name, value):
         if isinstance(value, Mapping):
             # create new CacheDict holding the actual values
-            if isinstance(self._timeout, CacheDict):
-                timeout = self._timeout
-            else:
-                timeout = self
-            entry = CacheDict(timeout, value)
+            entry = CacheDict(None, value, root=self._root)
         else:
             entry = ValContainer(value)
         super(CacheDict, self).__setitem__(name, entry)
@@ -33,12 +30,11 @@ class CacheDict(dict):
     def __getitem__(self, name):
         cur_time = time.time()
         entry = super(CacheDict, self).__getitem__(name)
-        if isinstance(self._timeout, CacheDict):
-            timeout = self._timeout._timeout
-        else:
-            timeout = self._timeout
+        timeout = self._timeout or self._root._timeout
 
         if isinstance(entry, ValContainer):
+            if timeout is None:
+                return entry.value
             if entry.tstamp < cur_time - timeout:
                 del self[name]
                 raise KeyError(name)
