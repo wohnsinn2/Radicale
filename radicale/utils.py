@@ -1,22 +1,22 @@
 import time
+from collections import namedtuple, Mapping
 
 
-class ValContainer(dict):
-    def __init__(self, value):
+class ValContainer(namedtuple('ValContainer', ['tstamp', 'value'])):
+    def __new__(cls, value):
         tstamp = time.time()
-        super(ValContainer, self).__init__()
-        self['tstamp'] = tstamp
-        self['value'] = value
+        return super(ValContainer, cls).__new__(cls, tstamp, value)
+
 
 class CacheDict(dict):
-    def __init__(self, timeout, mapping=None, *args, **kwargs):
+    def __init__(self, timeout, mapping=None):
         self._timeout = float(timeout)
-        super(CacheDict, self).__init__(*args, **kwargs)
+        super(CacheDict, self).__init__()
         if mapping is not None:
             self.update(mapping)
 
     def __setitem__(self, name, value):
-        if issubclass(type(value), dict):
+        if isinstance(value, Mapping):
             # create new CacheDict holding the actual values
             entry = CacheDict(self._timeout, value)
         else:
@@ -26,17 +26,17 @@ class CacheDict(dict):
     def __getitem__(self, name):
         cur_time = time.time()
         entry = super(CacheDict, self).__getitem__(name)
-        if issubclass(type(entry), ValContainer):
-            if (entry['tstamp'] < (cur_time - self._timeout)):
-                super(CacheDict, self).__delitem__(name)
+        if isinstance(entry, ValContainer):
+            if entry.tstamp < cur_time - self._timeout:
+                del self[name]
                 raise KeyError(name)
-            return entry['value']
+            return entry.value
         else:
             return entry
 
     def update(self, mapping):
         # TODO: use generator
-        for (k,v) in mapping.items():
+        for k,v in mapping.items():
             self.__setitem__(k, v)
 
     def clean(self,timeout=None):
