@@ -12,6 +12,10 @@ class CacheDict(dict):
     def __init__(self, timeout=None, mapping=None, root=None):
         super(CacheDict, self).__init__()
         self._timeout = timeout
+        # why does
+        # self._root = root or self
+        # not work here?!
+        # -> empty dicts are False!
         if root is None:
             self._root = self
         else:
@@ -22,7 +26,7 @@ class CacheDict(dict):
     def __setitem__(self, name, value):
         if isinstance(value, Mapping):
             # create new CacheDict holding the actual values
-            entry = CacheDict(None, value, root=self._root)
+            entry = CacheDict(None, value, self._root)
         else:
             entry = ValContainer(value)
         super(CacheDict, self).__setitem__(name, entry)
