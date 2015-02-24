@@ -22,14 +22,16 @@ def _get_cal_name(collection):
     # TODO use urllib parser
     # TODO check sanity [a-zA-Z-_]
     # ! TODO check user!!!
-    if '/' not in collection:
-        raise NameError("Collection {} is not valid.".format(collection))
-    cal_name = collection.split('/')[-1]
-    cal_name = cal_name.rstrip(".ics")
-    return cal_name
+    collection_parts = collection.split('/')
+    if len(collection_parts) >= 2:
+        cal_name = collection.split('/')[1]
+        cal_name = cal_name.rstrip(".ics")
+        return cal_name
+    else:
+        return None
 
 def _get_user(collection):
-    return collection.split('/')[1]
+    return collection.split('/')[0]
 
 def _http_get_permission(user, cal_name):
     rights_url = Template(RIGHTS_URL_TEMPL).substitute(user=user, cal=cal_name)
@@ -41,6 +43,8 @@ def _http_get_permission(user, cal_name):
 
 def _get_permission(user, collection):
     cal_name = _get_cal_name(collection)
+    if cal_name is None:
+        return 'r'
     try:
         permission = permission_cache[user][cal_name]
         log.LOGGER.debug("Got permission {} for user {} and collection {} from cache".format(permission, user, cal_name))
