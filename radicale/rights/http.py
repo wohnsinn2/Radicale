@@ -10,6 +10,8 @@ RIGHTS_URL_TEMPL = config.get("rights", "rights_url")
 
 log.LOGGER.debug("http rights module loaded")
 TIMEOUT = config.get("rights", "http_cache_timeout")
+CAL_USER = config.get("rights", "http_calendar_user")
+
 
 session = requests.Session()
 permission_cache = CacheDict(TIMEOUT)
@@ -19,12 +21,15 @@ def _get_cal_name(collection):
     # TODO normalize/lowercase
     # TODO use urllib parser
     # TODO check sanity [a-zA-Z-_]
+    # ! TODO check user!!!
     if '/' not in collection:
         raise NameError("Collection {} is not valid.".format(collection))
     cal_name = collection.split('/')[-1]
     cal_name = cal_name.rstrip(".ics")
     return cal_name
 
+def _get_user(collection):
+    return collection.split('/')[1]
 
 def _http_get_permission(user, cal_name):
     rights_url = Template(RIGHTS_URL_TEMPL).substitute(user=user, cal=cal_name)
@@ -58,6 +63,9 @@ def _authorized_http(user, collection, permission):
 
 def authorized(user, collection, permission):
     collection_url = collection.url.rstrip("/") or "/"
+    cal_user = _get_user(collection_url)
+    if cal_user != CAL_USER:
+        return False
     if user is None:
         return False
     else:
