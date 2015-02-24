@@ -17,13 +17,12 @@ permission_cache = CacheDict(TIMEOUT)
 
 def _get_cal_name(collection):
     # TODO normalize/lowercase
-    # check sanity [a-zA-Z-_]
-    # use urllib parser
-    log.LOGGER.debug(collection)
-    cal_name = collection
-    cal_name = cal_name.split('/')[-1]
+    # TODO use urllib parser
+    # TODO check sanity [a-zA-Z-_]
+    if '/' not in collection:
+        raise NameError("Collection {} is not valid.".format(collection))
+    cal_name = collection.split('/')[-1]
     cal_name = cal_name.rstrip(".ics")
-    log.LOGGER.debug(cal_name)
     return cal_name
 
 
