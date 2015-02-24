@@ -18,7 +18,7 @@ class ValContainer(namedtuple('ValContainer', ['tstamp', 'value'])):
 class CacheDict(dict):
     def __init__(self, timeout=None, mapping=None, root=None):
         super(CacheDict, self).__init__()
-        self._timeout = timeout
+        self._timeout = float(timeout) if timeout is not None else None
         real_root = root if root is not None else self
         self._root = weakref.ref(real_root)
         if mapping is not None:
@@ -70,7 +70,6 @@ class CacheDict(dict):
         for k in g:
             yield k
 
-
     update = MutableMapping.update
     keys = MutableMapping.keys
     values = MutableMapping.values
@@ -79,7 +78,6 @@ class CacheDict(dict):
 
     def clean(self, timeout=None):
         raise NotImplemented
-
 
     def reset_time(self, name):
         raise NotImplemented

@@ -18,13 +18,16 @@ permission_cache = CacheDict(TIMEOUT)
 def _get_cal_name(collection):
     # TODO normalize/lowercase
     # check sanity [a-zA-Z-_]
-    cal_name = collection.rstrip(".ics")
+    # use urllib parser
+    log.LOGGER.debug(collection)
+    cal_name = collection
     cal_name = cal_name.split('/')[-1]
+    cal_name = cal_name.rstrip(".ics")
+    log.LOGGER.debug(cal_name)
     return cal_name
 
 
-def _http_get_permission(user, collection):
-    cal_name = _get_cal_name(collection)
+def _http_get_permission(user, cal_name):
     rights_url = Template(RIGHTS_URL_TEMPL).substitute(user=user, cal=cal_name)
     response = session.get(rights_url)
     permission = response.text or ""
@@ -33,17 +36,20 @@ def _http_get_permission(user, collection):
 
 
 def _get_permission(user, collection):
+    cal_name = _get_cal_name(collection)
     try:
-        return permission_cache[user][collection]
-        log.LOGGER.debug("Got permission {} for user {} and collection {} from cache".format(content, user, collection))
+        permission = permission_cache[user][cal_name]
+        log.LOGGER.debug("Got permission {} for user {} and collection {} from cache".format(permission, user, cal_name))
+        return permission
     except KeyError:
         try:
-            permission = _http_get_permission(user, collection)
-            permission_cache[user] = {collection: permission}
-            log.LOGGER.debug("Got permission {} for user {} and collection {} from http".format(content, user, collection))
-            return permission
+            permission = _http_get_permission(user, cal_name)
+            log.LOGGER.debug("Got permission {} for user {} and collection {} from http".format(permission, user, cal_name))
         except:
+            log.LOGGER.debug("Error while trying to get the permission for user {} on collection {}".format(user, cal_name))
             return ""
+        permission_cache[user] = {cal_name: permission}
+        return permission
 
 
 def _authorized_http(user, collection, permission):
