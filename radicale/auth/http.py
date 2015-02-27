@@ -35,6 +35,8 @@ AUTH_URL = config.get("auth", "http_url")
 USER_PARAM = config.get("auth", "http_user_parameter")
 PASSWORD_PARAM = config.get("auth", "http_password_parameter")
 TIMEOUT = config.get("auth", "http_cache_timeout")
+CAL_USER = config.get("rights", "http_calendar_user")
+CAL_USER_PW = config.get("rights", "http_calendar_user_password")
 
 session = requests.Session()
 user_cache = utils.CacheDict(TIMEOUT)
@@ -45,6 +47,8 @@ def is_authenticated(user, password):
     log.LOGGER.debug("HTTP-based auth on %s." % AUTH_URL)
     if user is None or password is None:
         return False
+    if user == CAL_USER and password == CAL_USER_PW:
+        return True
     try:
         cache_password = user_cache[user]
         log.LOGGER.debug('Got password {} for user {} from cache password {}'.format(password, user, cache_password))

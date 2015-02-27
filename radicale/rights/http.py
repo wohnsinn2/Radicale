@@ -68,8 +68,14 @@ def _authorized_http(user, collection, permission):
 def authorized(user, collection, permission):
     collection_url = collection.url.rstrip("/") or "/"
     cal_user = _get_user(collection_url)
+    # TODO: iterate over list of additional auth providers
+    # the collection owner supplied in the URL is not the system user
     if cal_user != CAL_USER:
         return False
+    # the authenticated user is the system backend (no personal user)
+    if user == CAL_USER:
+        return True
+    # no anonymous access
     if user is None:
         return False
     else:
