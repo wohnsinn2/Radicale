@@ -18,6 +18,7 @@ custom_handler = http
 rights_url = http://127.0.0.1:5008/api/user/$user/permissions/calendars/$cal
 http_cache_timeout = 3600
 http_calendar_user = ws2
+http_calendar_user_password = changeme
 
 [storage]
 type = filesystem
