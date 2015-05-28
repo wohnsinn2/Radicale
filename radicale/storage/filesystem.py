@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Radicale Server - Calendar Server
-# Copyright © 2012-2013 Guillaume Ayoub
+# Copyright © 2012-2015 Guillaume Ayoub
 #
 # This library is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ def open(path, mode="r"):
         path = os.path.relpath(abs_path, FOLDER)
         GIT_REPOSITORY.stage([path])
         committer = config.get("git", "committer")
-        GIT_REPOSITORY.do_commit("Commit by Radicale", committer=committer)
+        GIT_REPOSITORY.do_commit(path, committer=committer)
 # pylint: enable=W0622
 
 

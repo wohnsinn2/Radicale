@@ -3,7 +3,7 @@
 # This file is part of Radicale Server - Calendar Server
 # Copyright © 2008 Nicolas Kandel
 # Copyright © 2008 Pascal Halter
-# Copyright © 2008-2013 Guillaume Ayoub
+# Copyright © 2008-2015 Guillaume Ayoub
 #
 # This library is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ Define the main classes of a collection as seen from the server.
 import os
 import posixpath
 import hashlib
+import re
 from uuid import uuid4
 from random import randint
 from contextlib import contextmanager
@@ -58,13 +59,7 @@ def unfold(text):
     Read rfc5545-3.1 for info.
 
     """
-    lines = []
-    for line in text.splitlines():
-        if lines and (line.startswith(" ") or line.startswith("\t")):
-            lines[-1] += line[1:]
-        else:
-            lines.append(line)
-    return lines
+    return re.sub('\r\n( |\t)', '', text).splitlines()
 
 
 class Item(object):
@@ -199,6 +194,7 @@ class Collection(object):
         else:
             self.owner = None
         self.is_principal = principal
+        self._items = None
 
     @classmethod
     def from_path(cls, path, depth="1", include_container=True):
@@ -347,13 +343,7 @@ class Collection(object):
                     else:
                         items[item.name] = item
 
-        return list(items.values())
-
-    def get_item(self, name):
-        """Get collection item called ``name``."""
-        for item in self.items:
-            if item.name == name:
-                return item
+        return items
 
     def append(self, name, text):
         """Append items from ``text`` to collection.
@@ -361,37 +351,27 @@ class Collection(object):
         If ``name`` is given, give this name to new items in ``text``.
 
         """
-        items = self.items
-
-        for new_item in self._parse(
-                text, (Timezone, Event, Todo, Journal, Card), name):
-            if new_item.name not in (item.name for item in items):
-                items.append(new_item)
-
-        self.write(items=items)
+        new_items = self._parse(
+            text, (Timezone, Event, Todo, Journal, Card), name)
+        for new_item in new_items.values():
+            if new_item.name not in self.items:
+                self.items[new_item] = new_item
+        self.write()
 
     def remove(self, name):
         """Remove object named ``name`` from collection."""
-        components = [
-            component for component in self.components
-            if component.name != name]
-
-        items = self.timezones + components
-        self.write(items=items)
+        if name in self.items:
+            del self.items[name]
+        self.write()
 
     def replace(self, name, text):
         """Replace content by ``text`` in collection objet called ``name``."""
         self.remove(name)
         self.append(name, text)
 
-    def write(self, headers=None, items=None):
+    def write(self):
         """Write collection with given parameters."""
-        headers = headers or self.headers or (
-            Header("PRODID:-//Radicale//NONSGML Radicale Server//EN"),
-            Header("VERSION:%s" % self.version))
-        items = items if items is not None else self.items
-
-        text = serialize(self.tag, headers, items)
+        text = serialize(self.tag, self.headers, self.items.values())
         self.save(text)
 
     def set_mimetype(self, mimetype):
@@ -470,42 +450,29 @@ class Collection(object):
                 break
             header_lines.append(Header(line))
 
-        return header_lines
+        return header_lines or (
+            Header("PRODID:-//Radicale//NONSGML Radicale Server//EN"),
+            Header("VERSION:%s" % self.version))
 
     @property
     def items(self):
         """Get list of all items in collection."""
-        return self._parse(self.text, (Event, Todo, Journal, Card, Timezone))
+        if self._items is None:
+            self._items = self._parse(
+                self.text, (Event, Todo, Journal, Card, Timezone))
+        return self._items
+
+    @property
+    def timezones(self):
+        """Get list of all timezones in collection."""
+        return [
+            item for item in self.items.values() if item.tag == Timezone.tag]
 
     @property
     def components(self):
         """Get list of all components in collection."""
-        return self._parse(self.text, (Event, Todo, Journal, Card))
-
-    @property
-    def events(self):
-        """Get list of ``Event`` items in calendar."""
-        return self._parse(self.text, (Event,))
-
-    @property
-    def todos(self):
-        """Get list of ``Todo`` items in calendar."""
-        return self._parse(self.text, (Todo,))
-
-    @property
-    def journals(self):
-        """Get list of ``Journal`` items in calendar."""
-        return self._parse(self.text, (Journal,))
-
-    @property
-    def timezones(self):
-        """Get list of ``Timezone`` items in calendar."""
-        return self._parse(self.text, (Timezone,))
-
-    @property
-    def cards(self):
-        """Get list of ``Card`` items in address book."""
-        return self._parse(self.text, (Card,))
+        tags = [item_type.tag for item_type in (Event, Todo, Journal, Card)]
+        return [item for item in self.items.values() if item.tag in tags]
 
     @property
     def owner_url(self):

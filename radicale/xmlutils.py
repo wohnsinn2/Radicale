@@ -3,7 +3,7 @@
 # This file is part of Radicale Server - Calendar Server
 # Copyright © 2008 Nicolas Kandel
 # Copyright © 2008 Pascal Halter
-# Copyright © 2008-2013 Guillaume Ayoub
+# Copyright © 2008-2015 Guillaume Ayoub
 #
 # This library is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -445,7 +445,7 @@ def proppatch(path, xml_request, collection):
 def put(path, ical_request, collection):
     """Read PUT requests."""
     name = name_from_path(path, collection)
-    if name in (item.name for item in collection.items):
+    if name in collection.items:
         # PUT is modifying an existing item
         collection.replace(name, ical_request)
     elif name:
@@ -466,7 +466,9 @@ def report(path, xml_request, collection):
     root = ET.fromstring(xml_request.encode("utf8"))
 
     prop_element = root.find(_tag("D", "prop"))
-    props = [prop.tag for prop in prop_element] if prop_element else []
+    props = (
+        [prop.tag for prop in prop_element]
+        if prop_element is not None else [])
 
     if collection:
         if root.tag in (_tag("C", "calendar-multiget"),
@@ -495,7 +497,6 @@ def report(path, xml_request, collection):
     multistatus = ET.Element(_tag("D", "multistatus"))
 
     collection_tag = collection.tag
-    collection_items = collection.items
     collection_headers = collection.headers
     collection_timezones = collection.timezones
 
@@ -505,46 +506,84 @@ def report(path, xml_request, collection):
         if name:
             # Reference is an item
             path = "/".join(hreference.split("/")[:-1]) + "/"
-            items = (item for item in collection_items if item.name == name)
+            try:
+                items = [collection.items[name]]
+            except KeyError:
+                multistatus.append(
+                    _item_response(hreference, found_item=False))
+                continue
+
         else:
             # Reference is a collection
             path = hreference
             items = collection.components
 
         for item in items:
+            href = _href("%s/%s" % (path.rstrip("/"), item.name))
             if tag_filters and item.tag not in tag_filters:
                 continue
 
-            response = ET.Element(_tag("D", "response"))
-            multistatus.append(response)
-
-            href = ET.Element(_tag("D", "href"))
-            href.text = _href("%s/%s" % (path.rstrip("/"), item.name))
-            response.append(href)
-
-            propstat = ET.Element(_tag("D", "propstat"))
-            response.append(propstat)
-
-            prop = ET.Element(_tag("D", "prop"))
-            propstat.append(prop)
+            found_props = []
+            not_found_props = []
 
             for tag in props:
                 element = ET.Element(tag)
                 if tag == _tag("D", "getetag"):
                     element.text = item.etag
+                    found_props.append(element)
                 elif tag == _tag("D", "getcontenttype"):
                     element.text = "%s; component=%s" % (
                         item.mimetype, item.tag.lower())
+                    found_props.append(element)
                 elif tag in (_tag("C", "calendar-data"),
                              _tag("CR", "address-data")):
                     if isinstance(item, ical.Component):
                         element.text = ical.serialize(
                             collection_tag, collection_headers,
                             collection_timezones + [item])
-                prop.append(element)
+                    found_props.append(element)
+                else:
+                    not_found_props.append(element)
 
-            status = ET.Element(_tag("D", "status"))
-            status.text = _response(200)
-            propstat.append(status)
+            multistatus.append(_item_response(
+                href, found_props=found_props, not_found_props=not_found_props,
+                found_item=True))
 
     return _pretty_xml(multistatus)
+
+
+def _item_response(href, found_props=(), not_found_props=(), found_item=True):
+    response = ET.Element(_tag("D", "response"))
+
+    href_tag = ET.Element(_tag("D", "href"))
+    href_tag.text = href
+    response.append(href_tag)
+
+    if found_item:
+        if found_props:
+            propstat = ET.Element(_tag("D", "propstat"))
+            status = ET.Element(_tag("D", "status"))
+            status.text = _response(200)
+            prop = ET.Element(_tag("D", "prop"))
+            for p in found_props:
+                prop.append(p)
+            propstat.append(prop)
+            propstat.append(status)
+            response.append(propstat)
+
+        if not_found_props:
+            propstat = ET.Element(_tag("D", "propstat"))
+            status = ET.Element(_tag("D", "status"))
+            status.text = _response(404)
+            prop = ET.Element(_tag("D", "prop"))
+            for p in not_found_props:
+                prop.append(p)
+            propstat.append(prop)
+            propstat.append(status)
+            response.append(propstat)
+    else:
+        status = ET.Element(_tag("D", "status"))
+        status.text = _response(404)
+        response.append(status)
+
+    return response
